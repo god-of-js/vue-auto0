@@ -7,9 +7,8 @@
 <script>
 export default {
   async mounted() {
-    const idToken = await this.$auth.getIdTokenClaims();
+    const idToken = await this.$auth.getTokenSilently();
     console.log(idToken);
-    // this.$auth.logout();
   },
 };
 </script>

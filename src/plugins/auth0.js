@@ -43,6 +43,7 @@ export const useAuth0 = ({
         }
       },
       async handleRedirectCallback() {
+        console.log("handle redirect callback");
         this.loading = true;
         try {
           await this.auth0Client.handleRedirectCallback();
@@ -57,7 +58,6 @@ export const useAuth0 = ({
         }
       },
       loginWithRedirect(o) {
-        console.log("login with redirect");
         return this.auth0Client.loginWithRedirect(o);
       },
       getIdTokenClaims(o) {
