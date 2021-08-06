@@ -5,10 +5,5 @@
 </template>
 
 <script>
-export default {
-  async mounted() {
-    const idToken = await this.$auth.getTokenSilently();
-    console.log(idToken);
-  },
-};
+export default {};
 </script>
