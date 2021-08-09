@@ -15,7 +15,7 @@ const routes = [
     name: "About",
     component: () =>
       import(/* webpackChunkName: "about" */ "../views/About.vue"),
-    beforeEnter: authGuard,
+    meta: { requiresAuth: true },
   },
 ];
 
@@ -24,5 +24,6 @@ const router = new VueRouter({
   base: process.env.BASE_URL,
   routes,
 });
+router.beforeEach(authGuard);
 
 export default router;

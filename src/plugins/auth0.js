@@ -1,110 +1,94 @@
-import router from "@/router";
-import auth0 from "auth0-js";
-import append from "ramda/src/append";
+import Vue from "vue";
+import createAuth0Client from "@auth0/auth0-spa-js";
 
-class AuthService {
-  constructor() {
-    // HOSTED
-    this.login = this.login.bind(this);
-    this.setSession = this.setSession.bind(this);
-    this.logout = this.logout.bind(this);
-    this.isAuthenticated = this.isAuthenticated.bind(this);
-    this.authenticatedHandlers = [];
-    this.beforeLogoutHandlers = [];
+const DEFAULT_REDIRECT_CALLBACK = () =>
+  window.history.replaceState({}, document.title, window.location.pathname);
 
-    // const { clientId, webappUrl } = this._getAuth0Props();
+let instance;
 
-    this.auth0 = new auth0.WebAuth({
-      clientID: process.env.VUE_APP_CLIENT_ID,
-      domain: process.env.VUE_APP_DOMAIN,
-      responseType: "token id_token",
-      redirectUri: window.location.origin,
-      audience: process.env.VUE_APP_MY_AUDIENCE,
-    });
-  }
+export const getInstance = () => instance;
 
-  handleAuthentication() {
-    this.auth0.parseHash((err, authResult) => {
-      if (authResult && authResult.accessToken && authResult.idToken) {
-        console.log(authResult);
-        this.setSession(authResult);
-        this.authenticatedHandlers.forEach((handler) => handler());
-        return;
+export const useAuth0 = ({
+  onRedirectCallback = DEFAULT_REDIRECT_CALLBACK,
+  redirectUri = window.location.origin,
+  ...options
+}) => {
+  if (instance) return instance;
+
+  instance = new Vue({
+    data() {
+      return {
+        loading: true,
+        isAuthenticated: false,
+        user: {},
+        auth0Client: null,
+        popupOpen: false,
+        error: null,
+      };
+    },
+    methods: {
+      async handleRedirectCallback() {
+        this.loading = true;
+        try {
+          await this.auth0Client.handleRedirectCallback();
+          this.user = await this.auth0Client.getUser();
+          console.log(this.user);
+          this.isAuthenticated = true;
+          this.error = null;
+        } catch (e) {
+          this.error = e;
+        } finally {
+          this.loading = false;
+        }
+      },
+      loginWithRedirect(o) {
+        console.log("login with redirect");
+        return this.auth0Client.loginWithRedirect(o);
+      },
+      getIdTokenClaims(o) {
+        return this.auth0Client.getIdTokenClaims(o);
+      },
+      async getTokenSilently(o) {
+        // This gets the JWT token without a redirect.
+        return this.auth0Client.getTokenSilently(o);
+      },
+      logout(o) {
+        return this.auth0Client.logout(o);
+      },
+    },
+    async created() {
+      this.auth0Client = await createAuth0Client({
+        ...options,
+        client_id: options.clientId,
+        redirect_uri: redirectUri,
+        audience: options.audience,
+        responseType: "token id_token",
+      });
+
+      try {
+        if (
+          window.location.search.includes("code=") &&
+          window.location.search.includes("state=")
+        ) {
+          const { appState } = await this.auth0Client.handleRedirectCallback();
+          this.error = null;
+          onRedirectCallback(appState);
+        }
+      } catch (e) {
+        this.error = e;
+      } finally {
+        this.isAuthenticated = await this.auth0Client.isAuthenticated();
+        this.user = await this.auth0Client.getUser();
+        this.loading = false;
       }
+    },
+  });
 
-      if (err) {
-        // TODO log some cases to slack error_prod
-        this.login(err.errorDescription);
-        return;
-      }
+  return instance;
+};
 
-      this.login("Something went wrong. Please report this at support@amio.io");
-    });
-  }
-
-  login(errorMessage = null) {
-    if (!errorMessage) {
-      this.auth0.authorize();
-      return;
-    }
-
-    this.auth0.authorize({
-      authParamsMap: { errorMessage },
-    });
-  }
-
-  signUp(email) {
-    this.auth0.authorize({
-      login_hint: email || "",
-    });
-  }
-
-  setSession(authResult) {
-    // Set the time that the Access Token will expire at
-    const expiresAt = JSON.stringify(
-      authResult.expiresIn * 1000 + new Date().getTime()
-    );
-    localStorage.setItem("access_token", authResult.accessToken);
-    localStorage.setItem("id_token", authResult.idToken);
-    localStorage.setItem("expires_at", expiresAt);
-  }
-
-  logout() {
-    this.beforeLogoutHandlers.forEach((handler) => handler());
-
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("id_token");
-    localStorage.removeItem("expires_at");
-    router.replace("/login");
-  }
-
-  isAuthenticated() {
-    // Check whether the current time is past the
-    // Access Token's expiry time
-    let expiresAt = JSON.parse(localStorage.getItem("expires_at"));
-    return new Date().getTime() < expiresAt;
-  }
-
-  getExpirationTime() {
-    return localStorage.getItem("expires_at");
-  }
-
-  addAuthenticatedHandler(handler) {
-    this.authenticatedHandlers = append(handler, this.authenticatedHandlers);
-    return this;
-  }
-
-  addBeforeLogoutHandler(handler) {
-    this.beforeLogoutHandlers = append(handler, this.beforeLogoutHandlers);
-  }
-
-  _getAuth0Props() {
-    return {
-      clientId: process.env.VUE_APP_AUTH0_CLIENT_ID,
-      webappUrl: process.env.VUE_APP_SERVER_URL,
-      connectionName: process.env.VUE_APP_AUTH0_CONNECTION_NAME,
-    };
-  }
-}
-
-export default new AuthService();
+export const Auth0Plugin = {
+  install(Vue, options) {
+    Vue.prototype.$auth = useAuth0(options);
+  },
+};
