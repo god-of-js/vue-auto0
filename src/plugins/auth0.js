@@ -19,7 +19,7 @@ class AuthService {
       domain: process.env.VUE_APP_DOMAIN,
       responseType: "token id_token",
       redirectUri: window.location.origin,
-      audience: "https://dev-amio.eu.auth0.com/api/v2/",
+      audience: process.env.VUE_APP_MY_AUDIENCE,
     });
   }
 
