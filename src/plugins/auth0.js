@@ -27,21 +27,6 @@ export const useAuth0 = ({
       };
     },
     methods: {
-      async loginWithPopup(options, config) {
-        this.popupOpen = true;
-
-        try {
-          await this.auth0Client.loginWithPopup(options, config);
-          this.user = await this.auth0Client.getUser();
-          this.isAuthenticated = await this.auth0Client.isAuthenticated();
-          this.error = null;
-        } catch (e) {
-          console.error(e);
-          this.error = e;
-        } finally {
-          this.popupOpen = false;
-        }
-      },
       async handleRedirectCallback() {
         this.loading = true;
         try {
@@ -63,11 +48,9 @@ export const useAuth0 = ({
       getIdTokenClaims(o) {
         return this.auth0Client.getIdTokenClaims(o);
       },
-      getTokenSilently(o) {
+      async getTokenSilently(o) {
+        // This gets the JWT token without a redirect.
         return this.auth0Client.getTokenSilently(o);
-      },
-      getTokenWithPopup(o) {
-        return this.auth0Client.getTokenWithPopup(o);
       },
       logout(o) {
         return this.auth0Client.logout(o);
@@ -78,6 +61,8 @@ export const useAuth0 = ({
         ...options,
         client_id: options.clientId,
         redirect_uri: redirectUri,
+        audience: options.audience,
+        responseType: "token id_token",
       });
 
       try {

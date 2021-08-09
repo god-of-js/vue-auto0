@@ -1,13 +1,15 @@
 import Vue from "vue";
 import App from "./App.vue";
 import router from "./router";
-import { Auth0Plugin } from "./plugins/auth0";
 
 Vue.config.productionTip = false;
 
+// Auth0 configuration
+import { Auth0Plugin } from "@/plugins/auth0.js";
 Vue.use(Auth0Plugin, {
-  domain: process.env.VUE_APP_DOMAIN,
-  clientId: process.env.VUE_APP_CLIENT_ID,
+  domain: process.env.VUE_APP_AUTH0_DOMAIN,
+  clientId: process.env.VUE_APP_AUTH0_CLIENT_ID,
+  audience: process.env.VUE_APP_AUTH0_AUDIENCE,
   onRedirectCallback: (appState) => {
     router.push(
       appState && appState.targetUrl
@@ -16,6 +18,7 @@ Vue.use(Auth0Plugin, {
     );
   },
 });
+
 new Vue({
   router,
   render: (h) => h(App),
